@@ -1,0 +1,21 @@
+# Normalize line endings: checkout as-is, commit as LF
+* text=auto eol=lf
+
+# Shell scripts must always be LF (Linux deployment)
+*.sh text eol=lf
+
+# Windows batch files stay CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.db binary
+*.sqlite binary
+*.safetensors binary
+*.gguf binary
+*.bin binary
