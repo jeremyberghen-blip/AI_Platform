@@ -9,7 +9,7 @@ EXEMPT_PATHS = {"/", "/health"}
 
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        if request.url.path in EXEMPT_PATHS:
+        if request.url.path in EXEMPT_PATHS or request.method == "OPTIONS":
             return await call_next(request)
 
         auth = request.headers.get("Authorization", "")

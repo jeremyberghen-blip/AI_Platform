@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 from auth import AuthMiddleware
 from backends.comfyui import ComfyUIAdapter
@@ -12,8 +12,9 @@ from config import settings
 from core.event_bus import event_bus
 from core.session_manager import SessionManager
 from core.storage_manager import StorageManager
+from core.system_state import system_state
 from core.test_capture import TestCaptureManager
-from routers import chat, context, events, generate, models, sessions, status, test_router
+from routers import chat, context, events, generate, models, sessions, status, system, test_router
 
 logging.basicConfig(level=settings.log_level.upper())
 logger = logging.getLogger("harness_module")
@@ -54,16 +55,18 @@ async def lifespan(app: FastAPI):
     app.state.storage = storage
     app.state.test_capture = capture_mgr
 
+    await system_state.set_ready()
     await event_bus.publish("server_ready", {
         "backend": backend.backend_name,
+        "backend_url": str(settings.ollama_base_url if settings.backend_type == "ollama" else settings.comfyui_base_url),
         "test_mode": capture_mgr.enabled,
     })
 
     yield
 
     logger.info("Harness Module shutting down")
-    sessions = await app.state.session_manager.close_all()
-    for session in sessions:
+    closed_sessions = await app.state.session_manager.close_all()
+    for session in closed_sessions:
         await storage.write_session_metadata(session.to_dict())
         await storage.upsert_session(session.to_dict())
         logger.info("Closed session %s", session.session_id)
@@ -79,11 +82,23 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Harness Module",
-    description="BIS AI Harness — inference module with test/inspection layer",
+    description="AI Harness — inference module with test/inspection layer",
     version="0.1.0",
     lifespan=lifespan,
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:1420",
+        "http://127.0.0.1:1420",
+        "tauri://localhost",        # Tauri desktop app
+        "https://tauri.localhost",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.add_middleware(AuthMiddleware)
 
 # All routes under /v1
@@ -95,6 +110,7 @@ app.include_router(sessions.router, prefix="/v1")
 app.include_router(events.router, prefix="/v1")
 app.include_router(test_router.router, prefix="/v1")
 app.include_router(generate.router, prefix="/v1")
+app.include_router(system.router, prefix="/v1")
 
 
 @app.get("/")
@@ -104,7 +120,26 @@ async def root():
 
 @app.get("/health")
 async def health():
-    return {"ok": True}
+    """
+    Unauthenticated. Returns module health with enough detail for the
+    frontend to distinguish failure modes without valid credentials.
+
+    status values:
+      starting    — process just launched, not yet ready
+      installing  — first boot, installing software to network volume
+      updating    — applying a code update
+      ready       — fully operational
+      error       — unrecoverable error (see 'error' field)
+    """
+    snap = system_state.snapshot()
+    return {
+        "ok": snap["status"] == "ready",
+        "status": snap["status"],
+        "progress": snap["progress"],
+        "message": snap["message"],
+        "error": snap["error"],
+        "version": snap["installed_version"],
+    }
 
 
 if __name__ == "__main__":
