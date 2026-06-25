@@ -14,7 +14,7 @@ from core.session_manager import SessionManager
 from core.storage_manager import StorageManager
 from core.system_state import system_state
 from core.test_capture import TestCaptureManager
-from routers import chat, context, events, generate, models, sessions, status, system, test_router
+from routers import admin, chat, context, events, generate, models, sessions, status, system, test_router
 
 logging.basicConfig(level=settings.log_level.upper())
 logger = logging.getLogger("harness_module")
@@ -111,6 +111,7 @@ app.include_router(events.router, prefix="/v1")
 app.include_router(test_router.router, prefix="/v1")
 app.include_router(generate.router, prefix="/v1")
 app.include_router(system.router, prefix="/v1")
+app.include_router(admin.router, prefix="/v1")
 
 
 @app.get("/")

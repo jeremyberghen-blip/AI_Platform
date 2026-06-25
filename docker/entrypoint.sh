@@ -9,8 +9,14 @@ BRANCH="${BRANCH:-main}"
 HARNESS_API_KEY="${HARNESS_API_KEY:?HARNESS_API_KEY env var is required}"
 HARNESS_PORT="${HARNESS_PORT:-8080}"
 HARNESS_BACKEND_TYPE="${HARNESS_BACKEND_TYPE:-ollama}"
-# Which model to pull on first boot (space-separated for multiple)
-OLLAMA_MODELS="${OLLAMA_MODELS:-llama3.2:3b}"
+
+# Capture model list before OLLAMA_MODELS is repurposed as the storage path
+OLLAMA_MODEL_LIST="${OLLAMA_MODELS:-llama3.2:3b}"
+
+# SD models to download on first boot (space-separated filenames without extension)
+SD_MODELS="${SD_MODELS:-v1-5-pruned-emaonly}"
+
+COMFYUI_DIR="${VOLUME_PATH}/comfyui"
 OLLAMA_HOST="http://localhost:11434"
 
 log() { echo "[entrypoint] $*"; }
@@ -34,25 +40,68 @@ done
 
 # ── 2. Install or verify the harness module ───────────────────────────────────
 if [ -f "${INSTALL_DIR}/.installed" ]; then
-    log "Found existing installation at ${INSTALL_DIR}"
-    INSTALLED_VERSION=$(cat "${INSTALL_DIR}/.installed" 2>/dev/null || echo "unknown")
-    log "Installed version: ${INSTALLED_VERSION}"
+    log "Found existing harness installation at ${INSTALL_DIR}"
 else
-    log "No installation found — running install..."
+    log "No harness installation found — running install..."
     /opt/harness/install.sh "${INSTALL_DIR}" "${REPO_URL}" "${BRANCH}"
 fi
 
-# ── 3. Pull requested models (skip if already present) ───────────────────────
-for MODEL in ${OLLAMA_MODELS}; do
+# ── 3. Install or verify ComfyUI ─────────────────────────────────────────────
+if [ -f "${COMFYUI_DIR}/.comfyui_installed" ]; then
+    log "Found existing ComfyUI installation at ${COMFYUI_DIR}"
+else
+    log "Installing ComfyUI — this will take a few minutes on first boot..."
+    rm -rf "${COMFYUI_DIR}"
+    git clone --depth 1 https://github.com/comfyanonymous/ComfyUI "${COMFYUI_DIR}"
+    cd "${COMFYUI_DIR}"
+
+    python3 -m venv venv
+    source venv/bin/activate
+
+    log "Installing PyTorch with CUDA support..."
+    pip install --upgrade pip --quiet
+    pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu124 --quiet
+
+    log "Installing ComfyUI dependencies..."
+    pip install -r requirements.txt --quiet
+
+    deactivate
+
+    mkdir -p models/checkpoints models/loras models/controlnet models/vae models/upscale_models output input
+
+    echo "$(date -u +"%Y%m%dT%H%M%SZ")" > "${COMFYUI_DIR}/.comfyui_installed"
+    log "ComfyUI installed"
+fi
+
+# ── 4. Pull Ollama models (skip if already present) ───────────────────────────
+for MODEL in ${OLLAMA_MODEL_LIST}; do
     if ollama list 2>/dev/null | grep -q "^${MODEL}"; then
-        log "Model already present: ${MODEL}"
+        log "Ollama model already present: ${MODEL}"
     else
-        log "Pulling model: ${MODEL} (this may take a while on first boot)"
+        log "Pulling Ollama model: ${MODEL} (this may take a while on first boot)"
         ollama pull "${MODEL}" || log "WARNING: failed to pull ${MODEL}"
     fi
 done
 
-# ── 4. Write runtime .env for the harness module ─────────────────────────────
+# ── 5. Download SD checkpoints (skip if already present) ─────────────────────
+declare -A SD_MODEL_URLS=(
+    ["v1-5-pruned-emaonly"]="https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.safetensors"
+)
+
+for MODEL_NAME in ${SD_MODELS}; do
+    MODEL_FILE="${COMFYUI_DIR}/models/checkpoints/${MODEL_NAME}.safetensors"
+    if [ -f "${MODEL_FILE}" ]; then
+        log "SD model already present: ${MODEL_NAME}"
+    elif [ -n "${SD_MODEL_URLS[${MODEL_NAME}]+_}" ]; then
+        log "Downloading SD model: ${MODEL_NAME}..."
+        wget -q --show-progress -O "${MODEL_FILE}" "${SD_MODEL_URLS[${MODEL_NAME}]}" \
+            || log "WARNING: failed to download ${MODEL_NAME}"
+    else
+        log "WARNING: unknown SD model '${MODEL_NAME}' — skipping"
+    fi
+done
+
+# ── 6. Write runtime .env for the harness module ─────────────────────────────
 ENV_FILE="${INSTALL_DIR}/harness_module/.env"
 cat > "${ENV_FILE}" <<EOF
 HARNESS_API_KEY=${HARNESS_API_KEY}
@@ -60,21 +109,11 @@ HARNESS_BACKEND_TYPE=${HARNESS_BACKEND_TYPE}
 HARNESS_OLLAMA_BASE_URL=${OLLAMA_HOST}
 HARNESS_PORT=${HARNESS_PORT}
 HARNESS_STORAGE_PATH=${VOLUME_PATH}/harness_storage
+HARNESS_VOLUME_PATH=${VOLUME_PATH}
 EOF
 log "Runtime .env written"
 
-# ── 5. Start harness module ───────────────────────────────────────────────────
-VENV="${INSTALL_DIR}/venv"
-log "Starting harness module on port ${HARNESS_PORT}..."
-cd "${INSTALL_DIR}/harness_module"
-"${VENV}/bin/uvicorn" main:app \
-    --host 0.0.0.0 \
-    --port "${HARNESS_PORT}" \
-    --log-level info &
-MODULE_PID=$!
-
-log "All services running. Ollama PID=${OLLAMA_PID}, Module PID=${MODULE_PID}"
-
-# Keep container alive and propagate signals
-trap 'log "Shutting down..."; kill ${MODULE_PID} ${OLLAMA_PID} 2>/dev/null; exit 0' SIGTERM SIGINT
-wait ${MODULE_PID}
+# ── 7. Hand off to supervisor (manages harness + ComfyUI in a restart loop) ──
+log "Handing off to supervisor..."
+export VOLUME_PATH INSTALL_DIR COMFYUI_DIR HARNESS_PORT BRANCH
+exec /opt/harness/supervisor.sh

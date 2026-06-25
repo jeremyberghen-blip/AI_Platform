@@ -10,7 +10,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3.11 python3.11-venv python3-pip \
     curl wget git ca-certificates \
-    lsof procps \
+    lsof procps zstd \
     && rm -rf /var/lib/apt/lists/*
 
 # python3 → python3.11
@@ -21,12 +21,13 @@ RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
 RUN curl -fsSL https://ollama.com/install.sh | sh
 
 # ── Bootstrap scripts (baked into image, app code lives on volume) ───────────
-COPY entrypoint.sh install.sh update.sh /opt/harness/
+COPY entrypoint.sh install.sh update.sh supervisor.sh /opt/harness/
 RUN chmod +x /opt/harness/*.sh
 
 # ── Ports ────────────────────────────────────────────────────────────────────
-# 8080 = harness module API
+# 8080  = harness module API
+# 8188  = ComfyUI
 # 11434 = Ollama
-EXPOSE 8080 11434
+EXPOSE 8080 8188 11434
 
 ENTRYPOINT ["/opt/harness/entrypoint.sh"]
