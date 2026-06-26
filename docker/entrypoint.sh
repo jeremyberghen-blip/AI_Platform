@@ -47,31 +47,32 @@ else
 fi
 
 # ── 3. Install or verify ComfyUI ─────────────────────────────────────────────
+export PIP_CACHE_DIR="${VOLUME_PATH}/.pip_cache"
+mkdir -p "${PIP_CACHE_DIR}"
+
 if [ -f "${COMFYUI_DIR}/.comfyui_installed" ]; then
     log "Found existing ComfyUI installation at ${COMFYUI_DIR}"
 else
     log "Installing ComfyUI — this will take a few minutes on first boot..."
     rm -rf "${COMFYUI_DIR}"
     git clone --depth 1 https://github.com/comfyanonymous/ComfyUI "${COMFYUI_DIR}"
-    cd "${COMFYUI_DIR}"
-
-    python3 -m venv venv
-    source venv/bin/activate
-
-    log "Installing PyTorch with CUDA support..."
-    pip install --upgrade pip --quiet
-    pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu124 --quiet
-
-    log "Installing ComfyUI dependencies..."
-    pip install -r requirements.txt --quiet
-
-    deactivate
-
-    mkdir -p models/checkpoints models/loras models/controlnet models/vae models/upscale_models output input
-
+    mkdir -p "${COMFYUI_DIR}/models/checkpoints" \
+              "${COMFYUI_DIR}/models/loras" \
+              "${COMFYUI_DIR}/models/controlnet" \
+              "${COMFYUI_DIR}/models/vae" \
+              "${COMFYUI_DIR}/models/upscale_models" \
+              "${COMFYUI_DIR}/output" \
+              "${COMFYUI_DIR}/input"
     echo "$(date -u +"%Y%m%dT%H%M%SZ")" > "${COMFYUI_DIR}/.comfyui_installed"
-    log "ComfyUI installed"
+    log "ComfyUI cloned"
 fi
+
+# Always verify pip deps — packages live on the container (ephemeral), not the
+# volume, so they must be reinstalled on every new pod. Pip cache is on the
+# volume so this is fast after the first install.
+log "Verifying ComfyUI Python dependencies..."
+pip install -r "${COMFYUI_DIR}/requirements.txt" sqlalchemy --quiet
+log "ComfyUI dependencies ready"
 
 # ── 4. Pull Ollama models (skip if already present) ───────────────────────────
 for MODEL in ${OLLAMA_MODEL_LIST}; do
