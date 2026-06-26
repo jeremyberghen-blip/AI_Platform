@@ -1,10 +1,14 @@
 <script>
-  import { config, showSettings } from '../lib/stores.js';
-  import { saveConfig } from '../lib/config.js';
+  import { config, showSettings, moduleUrl } from '../lib/stores.js';
+  import { saveConfig, activeProfile } from '../lib/config.js';
+  import { API_KEY } from '../lib/config.js';
+  import { get } from 'svelte/store';
 
   let cfg = { ...$config, profiles: $config.profiles.map(p => ({ ...p })) };
   let testResult = '';
   let testing = false;
+  let updating = false;
+  let updateResult = '';
 
   $: currentProfile = cfg.profiles.find(p => p.id === cfg.activeProfileId) ?? cfg.profiles[0];
 
@@ -49,6 +53,26 @@
 
   function handleKeydown(e) {
     if (e.key === 'Escape') showSettings.set(false);
+  }
+
+  $: isRunPod = cfg.activeProfileId === 'runpod';
+
+  async function handleUpdate() {
+    updating = true;
+    updateResult = '';
+    try {
+      const url = get(moduleUrl).replace(/\/$/, '');
+      const res = await fetch(`${url}/v1/admin/update`, {
+        method: 'POST',
+        headers: { 'X-API-Key': API_KEY },
+      });
+      const data = await res.json();
+      updateResult = res.ok ? '✓ Update triggered — pod will restart shortly' : `✗ ${data.detail ?? 'Unknown error'}`;
+    } catch (e) {
+      updateResult = `✗ ${e.message}`;
+    } finally {
+      updating = false;
+    }
   }
 
   const BUILTIN = new Set(['local', 'runpod']);
@@ -115,10 +139,28 @@
       <label for="character">Active Character</label>
       <select id="character" bind:value={cfg.activeCharacter}>
         <option value="pip">Pip (Companion)</option>
-        <option value="code_agent">Code Agent</option>
-        <option value="media_agent">Media Agent</option>
+        <option value="code_agent">Code Agent (Engineering)</option>
+        <option value="media_agent">Media Agent (Visual Gen)</option>
+        <option value="mental_health">Reflect (Wellbeing)</option>
       </select>
     </div>
+
+    {#if isRunPod}
+      <div class="divider"></div>
+      <div class="section-label">Pod Management</div>
+      <div class="update-row">
+        <div class="update-info">
+          <span class="update-label">Update Pod</span>
+          <span class="update-hint">Pull latest code from GitHub and restart</span>
+        </div>
+        <button class="btn-secondary" on:click={handleUpdate} disabled={updating}>
+          {updating ? 'Updating…' : 'Update'}
+        </button>
+      </div>
+      {#if updateResult}
+        <div class="test-result" class:ok={updateResult.startsWith('✓')}>{updateResult}</div>
+      {/if}
+    {/if}
   </div>
 
   <div class="panel-footer">
@@ -322,4 +364,28 @@
   }
   .btn-secondary:hover:not(:disabled) { border-color: var(--accent); color: var(--text); }
   .btn-secondary:disabled { opacity: 0.4; cursor: default; }
+
+  .update-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .update-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .update-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .update-hint {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
 </style>
