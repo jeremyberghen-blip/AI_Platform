@@ -4,9 +4,11 @@ import signal
 
 from fastapi import APIRouter
 
+from config import settings
+
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-VOLUME_PATH = os.getenv("HARNESS_VOLUME_PATH", "/workspace")
+VOLUME_PATH = settings.volume_path
 
 
 async def _flag_and_exit(flag_file: str) -> None:

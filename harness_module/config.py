@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
     comfyui_base_url: str = "http://localhost:8188"
     storage_path: Path = Path("./storage")
+    volume_path: str = "/workspace"
     host: str = "0.0.0.0"
     port: int = 8080
     log_level: str = "info"
