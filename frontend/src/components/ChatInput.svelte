@@ -1,5 +1,5 @@
 <script>
-  import { canChat, isStreaming, messages, config, moduleUrl } from '../lib/stores.js';
+  import { canChat, isStreaming, messages, pushMessage, updateMessage, config, moduleUrl } from '../lib/stores.js';
   import { chatStream } from '../lib/api.js';
   import { API_KEY } from '../lib/config.js';
   import { get } from 'svelte/store';
@@ -28,15 +28,16 @@
     setTimeout(autoResize, 0);
 
     const cfg = get(config);
+    const characterId = cfg.activeCharacter;
 
     // Add user message
     const userMsg = { id: Date.now(), role: 'user', content: input };
-    messages.update(m => [...m, userMsg]);
+    pushMessage(characterId, userMsg);
 
     // Add streaming placeholder
     const assistantId = Date.now() + 1;
     const assistantMsg = { id: assistantId, role: 'assistant', content: '', streaming: true };
-    messages.update(m => [...m, assistantMsg]);
+    pushMessage(characterId, assistantMsg);
 
     isStreaming.set(true);
     controller = new AbortController();
@@ -56,35 +57,22 @@
     try {
       for await (const chunk of chatStream(get(moduleUrl), API_KEY, payload, controller.signal)) {
         if (chunk.type === 'token') {
-          messages.update(m => m.map(msg =>
-            msg.id === assistantId ? { ...msg, content: msg.content + chunk.content } : msg
-          ));
+          updateMessage(characterId, assistantId, m => ({ ...m, content: m.content + chunk.content }));
         } else if (chunk.type === 'done') {
-          messages.update(m => m.map(msg =>
-            msg.id === assistantId
-              ? { ...msg, streaming: false, tokens: chunk.usage?.completion_tokens, latency_ms: chunk.latency_ms }
-              : msg
-          ));
+          updateMessage(characterId, assistantId, m => ({
+            ...m, streaming: false, tokens: chunk.usage?.completion_tokens, latency_ms: chunk.latency_ms,
+          }));
         } else if (chunk.type === 'error') {
-          messages.update(m => m.map(msg =>
-            msg.id === assistantId
-              ? { ...msg, streaming: false, content: `[Error: ${chunk.message}]` }
-              : msg
-          ));
+          updateMessage(characterId, assistantId, m => ({
+            ...m, streaming: false, content: `[Error: ${chunk.message}]`,
+          }));
         }
       }
     } catch (e) {
       if (e.name !== 'AbortError') {
-        messages.update(m => m.map(msg =>
-          msg.id === assistantId
-            ? { ...msg, streaming: false, content: `[Error: ${e.message}]` }
-            : msg
-        ));
+        updateMessage(characterId, assistantId, m => ({ ...m, streaming: false, content: `[Error: ${e.message}]` }));
       } else {
-        // Aborted — finalize whatever streamed so far
-        messages.update(m => m.map(msg =>
-          msg.id === assistantId ? { ...msg, streaming: false } : msg
-        ));
+        updateMessage(characterId, assistantId, m => ({ ...m, streaming: false }));
       }
     } finally {
       isStreaming.set(false);

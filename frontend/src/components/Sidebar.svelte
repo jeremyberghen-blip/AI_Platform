@@ -2,15 +2,16 @@
   import ConnectionStatus from './ConnectionStatus.svelte';
   import RoutingTarget    from './RoutingTarget.svelte';
   import ModelSelector    from './ModelSelector.svelte';
-  import { config, showSettings, messages, isStreaming } from '../lib/stores.js';
+  import { config, showSettings, clearHistory, isStreaming } from '../lib/stores.js';
   import { saveConfig } from '../lib/config.js';
 
   export let onModelLoaded = () => {};
 
   const CHARACTERS = [
-    { id: 'pip',         label: 'Pip',         sub: 'Companion' },
-    { id: 'code_agent',  label: 'Code Agent',  sub: 'Engineering' },
-    { id: 'media_agent', label: 'Media Agent', sub: 'Visual Gen' },
+    { id: 'pip',           label: 'Pip',            sub: 'Companion' },
+    { id: 'code_agent',    label: 'Code Agent',     sub: 'Engineering' },
+    { id: 'media_agent',   label: 'Media Agent',    sub: 'Visual Gen' },
+    { id: 'mental_health', label: 'Reflect',        sub: 'Wellbeing' },
   ];
 
   function selectCharacter(id) {
@@ -19,15 +20,15 @@
       saveConfig(updated);
       return updated;
     });
-    messages.set([]);
+    // History is preserved — switching agents just changes the active view
   }
 
   function openSettings() {
     showSettings.set(true);
   }
 
-  async function handleNewChat() {
-    messages.set([]);
+  function handleNewChat() {
+    clearHistory($config.activeCharacter);
   }
 </script>
 

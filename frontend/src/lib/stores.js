@@ -17,7 +17,37 @@ export const availableModels  = writable([]);
 export const selectedModel    = writable('');
 
 // ── Chat ───────────────────────────────────────────────────
-export const messages    = writable([]);  // { id, role, content, tokens, latency_ms, streaming }
+// Per-character message histories, persisted to localStorage
+const HISTORIES_KEY = 'ai_harness_chat_histories';
+function loadHistories() {
+  try { return JSON.parse(localStorage.getItem(HISTORIES_KEY) ?? '{}'); } catch { return {}; }
+}
+export const chatHistories = writable(loadHistories());
+chatHistories.subscribe(h => {
+  try { localStorage.setItem(HISTORIES_KEY, JSON.stringify(h)); } catch {}
+});
+
+// Active character's messages (read-only derived — write via pushMessage/updateMessage)
+export const messages = derived(
+  [chatHistories, config],
+  ([h, cfg]) => h[cfg.activeCharacter] ?? []
+);
+
+export function pushMessage(characterId, msg) {
+  chatHistories.update(h => ({ ...h, [characterId]: [...(h[characterId] ?? []), msg] }));
+}
+
+export function updateMessage(characterId, id, updater) {
+  chatHistories.update(h => ({
+    ...h,
+    [characterId]: (h[characterId] ?? []).map(m => m.id === id ? updater(m) : m),
+  }));
+}
+
+export function clearHistory(characterId) {
+  chatHistories.update(h => ({ ...h, [characterId]: [] }));
+}
+
 export const isStreaming = writable(false);
 
 // ── UI ─────────────────────────────────────────────────────
