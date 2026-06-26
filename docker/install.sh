@@ -10,14 +10,11 @@ BRANCH="${3:-main}"
 log() { echo "[install] $*"; }
 
 mkdir -p "${INSTALL_DIR}"
-cd "${INSTALL_DIR}"
 
-# ── Clone repo ────────────────────────────────────────────────────────────────
+# ── Clone repo (keep .git so future updates can git pull) ─────────────────────
 log "Cloning ${REPO_URL} @ ${BRANCH}..."
-git clone --depth 1 --branch "${BRANCH}" "${REPO_URL}" repo
-# Flatten: move contents out of repo/ so INSTALL_DIR is the project root
-cp -a repo/. .
-rm -rf repo .git
+git clone --depth 1 --branch "${BRANCH}" "${REPO_URL}" "${INSTALL_DIR}"
+cd "${INSTALL_DIR}"
 
 # ── Create venv and install Python deps ───────────────────────────────────────
 log "Creating Python venv..."

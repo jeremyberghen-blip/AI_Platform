@@ -11,9 +11,8 @@ log() { echo "[update] $*"; }
 
 cd "${INSTALL_DIR}"
 
-log "Fetching latest from origin/${BRANCH}..."
-git fetch origin "${BRANCH}"
-git reset --hard "origin/${BRANCH}"
+log "Pulling latest from origin/${BRANCH}..."
+git pull origin "${BRANCH}"
 log "Code updated"
 
 log "Refreshing Python dependencies..."
