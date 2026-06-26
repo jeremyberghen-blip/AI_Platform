@@ -210,6 +210,31 @@ class StorageManager:
         lines = await loop.run_in_executor(None, path.read_text)
         return [json.loads(line) for line in lines.splitlines() if line.strip()]
 
+    async def write_thought(
+        self,
+        character_id: str,
+        session_id: str,
+        seq: int,
+        thought: str,
+        trigger_seq: int | None = None,
+    ) -> None:
+        log_dir = self.storage_path / "sessions" / character_id / session_id
+        log_dir.mkdir(parents=True, exist_ok=True)
+        entry: dict = {"seq": seq, "thought": thought, "timestamp": _now_iso()}
+        if trigger_seq is not None:
+            entry["trigger_seq"] = trigger_seq
+        path = log_dir / "thoughts.jsonl"
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, self._append_jsonl, path, entry)
+
+    async def read_thoughts(self, character_id: str, session_id: str) -> list[dict]:
+        path = self.storage_path / "sessions" / character_id / session_id / "thoughts.jsonl"
+        if not path.exists():
+            return []
+        loop = asyncio.get_event_loop()
+        lines = await loop.run_in_executor(None, path.read_text)
+        return [json.loads(line) for line in lines.splitlines() if line.strip()]
+
     # --- Media catalog ---
 
     async def insert_image(self, image_data: dict) -> None:

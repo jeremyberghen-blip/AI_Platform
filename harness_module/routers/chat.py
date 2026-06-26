@@ -1,14 +1,44 @@
+import asyncio
 import json
 import time
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
+from core.context_assembler import assembler
 from core.event_bus import event_bus
+from core.system_prompts import get_system_prompt, get_thought_prompt
 from core.telemetry import RequestTelemetry
 from schemas.requests import ChatRequest
 
 router = APIRouter()
+
+
+async def _generate_and_store_thought(
+    backend,
+    storage,
+    character_id: str,
+    session_id: str,
+    seq: int,
+    user_message: str,
+    thought_prompt: str,
+) -> None:
+    """Runs in parallel with the response stream. Best-effort — errors are silently dropped."""
+    try:
+        chunks: list[str] = []
+        async for chunk in backend.chat_stream(
+            messages=[{"role": "user", "content": user_message}],
+            system_prompt=thought_prompt,
+            params={"temperature": 0.6, "max_tokens": 150},
+        ):
+            if chunk.done:
+                break
+            chunks.append(chunk.content)
+        thought = "".join(chunks).strip()
+        if thought:
+            await storage.write_thought(character_id, session_id, seq, thought, trigger_seq=seq - 1)
+    except Exception:
+        pass  # thought generation is non-critical
 
 
 @router.post("/chat")
@@ -25,20 +55,37 @@ async def chat(body: ChatRequest, request: Request) -> StreamingResponse:
 
     session = await session_mgr.get_or_create(body.character_id, loaded_model)
 
-    messages_as_dicts = [{"role": m.role, "content": m.content} for m in body.messages]
+    # System prompt — LOD driven by model profile
+    lod = assembler.get_lod(loaded_model)
+    system_prompt = body.system_prompt or get_system_prompt(body.character_id, lod)
+
+    # Assemble context-budgeted history (excludes the current user message)
+    raw_history = [{"role": m.role, "content": m.content} for m in body.messages[:-1]]
+    current_user_content = body.messages[-1].content if body.messages else ""
+
+    trimmed_history = assembler.assemble(
+        model_id=loaded_model,
+        system_prompt=system_prompt,
+        history=raw_history,
+        user_message=current_user_content,
+    )
+
+    # Final messages list sent to the model
+    messages_as_dicts = trimmed_history + [{"role": "user", "content": current_user_content}]
+
     session.context.set_messages(body.messages)
 
     capture = capture_mgr.start_capture(
         character_id=body.character_id,
         session_id=session.session_id,
-        system_prompt=body.system_prompt,
+        system_prompt=system_prompt,
         messages=messages_as_dicts,
     )
     if capture:
         capture.backend_request = {
             "model": loaded_model,
             "messages": messages_as_dicts,
-            "system": body.system_prompt,
+            "system": system_prompt,
             "options": body.params.model_dump(),
         }
 
@@ -48,24 +95,37 @@ async def chat(body: ChatRequest, request: Request) -> StreamingResponse:
         model_id=loaded_model,
     )
 
-    # Save user messages to log
-    for i, msg in enumerate(body.messages):
-        if msg.role == "user":
-            seq = session.message_count * 2 + i
-            await storage.write_message(
-                body.character_id, session.session_id, seq,
-                "user", msg.content,
-            )
+    # Sequence numbers for this exchange
+    user_seq = session.message_count * 2
+    thought_seq = user_seq
+    assistant_seq = user_seq + 1
+
+    # Save user message
+    await storage.write_message(
+        body.character_id, session.session_id, user_seq,
+        "user", current_user_content,
+    )
+
+    # Fire thought generation in parallel — doesn't block the response stream
+    asyncio.create_task(_generate_and_store_thought(
+        backend=backend,
+        storage=storage,
+        character_id=body.character_id,
+        session_id=session.session_id,
+        seq=thought_seq,
+        user_message=current_user_content,
+        thought_prompt=get_thought_prompt(body.character_id),
+    ))
 
     async def generate():
-        full_response = []
+        full_response: list[str] = []
         prompt_tokens = 0
         completion_tokens = 0
 
         try:
             async for chunk in backend.chat_stream(
                 messages=messages_as_dicts,
-                system_prompt=body.system_prompt,
+                system_prompt=system_prompt,
                 params=body.params.model_dump(),
             ):
                 if chunk.done:
@@ -102,9 +162,8 @@ async def chat(body: ChatRequest, request: Request) -> StreamingResponse:
         session.context.append_assistant(assistant_content)
         session.record_exchange(prompt_tokens, completion_tokens)
 
-        seq = session.message_count * 2
         await storage.write_message(
-            body.character_id, session.session_id, seq,
+            body.character_id, session.session_id, assistant_seq,
             "assistant", assistant_content,
             tokens=completion_tokens,
             latency_ms=telemetry.total_ms,
