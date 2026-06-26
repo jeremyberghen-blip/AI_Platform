@@ -7,7 +7,7 @@ from fastapi.responses import StreamingResponse
 
 from core.context_assembler import assembler
 from core.event_bus import event_bus
-from core.system_prompts import get_system_prompt, get_thought_prompt
+from core.system_prompts import get_skills_block, get_system_prompt, get_thought_prompt
 from core.telemetry import RequestTelemetry
 from schemas.requests import ChatRequest
 
@@ -55,9 +55,12 @@ async def chat(body: ChatRequest, request: Request) -> StreamingResponse:
 
     session = await session_mgr.get_or_create(body.character_id, loaded_model)
 
-    # System prompt — LOD driven by model profile
+    # System prompt — LOD driven by model profile, skills block appended if available
     lod = assembler.get_lod(loaded_model)
-    system_prompt = body.system_prompt or get_system_prompt(body.character_id, lod)
+    system_prompt = body.system_prompt or (
+        get_system_prompt(body.character_id, lod)
+        + get_skills_block(body.character_id)
+    )
 
     # Assemble context-budgeted history (excludes the current user message)
     raw_history = [{"role": m.role, "content": m.content} for m in body.messages[:-1]]
