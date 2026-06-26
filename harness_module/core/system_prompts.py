@@ -195,6 +195,14 @@ _DEFAULT_THOUGHT = (
 )
 
 
+# Appended to all agent prompts at LOD 1+ (not LOD 0 — budget too tight)
+_PERMISSION_RULE = (
+    "Before taking any action beyond conversation — making a code change, running a "
+    "workflow, generating content, or starting a multi-step task — briefly describe "
+    "what you're about to do and ask for confirmation. Don't proceed until you have it. "
+    "A single sentence is enough: 'I'll do X — go ahead?'"
+)
+
 _SKILLS_BLOCKS: dict[str, dict[str, str]] = {
     # Populated when tools are wired up. Each key is a tool name,
     # value is the one-line description shown to the agent.
@@ -211,7 +219,10 @@ def get_system_prompt(character_id: str, lod: int) -> str:
     if not prompts:
         return _DEFAULT_SYSTEM
     lod = max(0, min(lod, len(prompts) - 1))
-    return prompts[lod]
+    prompt = prompts[lod]
+    if lod >= 1:
+        prompt += "\n\n" + _PERMISSION_RULE
+    return prompt
 
 
 def get_skills_block(character_id: str, available_tools: list[str] | None = None) -> str:

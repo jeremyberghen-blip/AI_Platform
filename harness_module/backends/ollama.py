@@ -128,9 +128,15 @@ class OllamaAdapter(BackendAdapter):
         system_prompt: str,
         params: dict,
     ) -> AsyncGenerator[ChatChunk, None]:
+        # /api/chat requires system prompt as the first message, not a top-level field
+        messages_with_system = (
+            [{"role": "system", "content": system_prompt}] + messages
+            if system_prompt
+            else messages
+        )
         payload = {
             "model": self._loaded_model or params.get("model", ""),
-            "messages": messages,
+            "messages": messages_with_system,
             "stream": True,
             "options": {
                 "temperature": params.get("temperature", 0.8),
@@ -140,8 +146,6 @@ class OllamaAdapter(BackendAdapter):
                 "repeat_penalty": params.get("repeat_penalty", 1.1),
             },
         }
-        if system_prompt:
-            payload["system"] = system_prompt
 
         async with self._client.stream(
             "POST",
