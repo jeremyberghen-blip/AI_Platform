@@ -71,7 +71,7 @@ fi
 # volume, so they must be reinstalled on every new pod. Pip cache is on the
 # volume so this is fast after the first install.
 log "Verifying ComfyUI Python dependencies..."
-pip install -r "${COMFYUI_DIR}/requirements.txt" sqlalchemy --quiet
+pip install -r "${COMFYUI_DIR}/requirements.txt" sqlalchemy alembic tqdm blake3 --quiet
 log "ComfyUI dependencies ready"
 
 # ── 4. Pull Ollama models (skip if already present) ───────────────────────────
