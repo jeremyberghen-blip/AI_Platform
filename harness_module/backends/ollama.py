@@ -78,7 +78,7 @@ class OllamaAdapter(BackendAdapter):
             await self._client.post(
                 "/api/generate",
                 json={"model": model_id, "prompt": "", "stream": False},
-                timeout=120.0,
+                timeout=600.0,
             )
             self._loaded_model = model_id
             yield LoadProgress(status="ready", progress=1.0, message=f"{model_id} ready")
