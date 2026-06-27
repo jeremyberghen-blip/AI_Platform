@@ -17,6 +17,7 @@ OLLAMA_MODEL_LIST="${OLLAMA_MODELS:-llama3.2:3b}"
 SD_MODELS="${SD_MODELS:-v1-5-pruned-emaonly}"
 
 COMFYUI_DIR="${VOLUME_PATH}/comfyui"
+KOHYA_DIR="${VOLUME_PATH}/kohya_ss"
 OLLAMA_HOST="http://localhost:11434"
 
 log() { echo "[entrypoint] $*"; }
@@ -79,7 +80,21 @@ for req in "${COMFYUI_DIR}"/custom_nodes/*/requirements.txt; do
 done
 log "ComfyUI dependencies ready"
 
-# ── 4. Pull Ollama models (skip if already present) ───────────────────────────
+# ── 4. Install or verify kohya_ss ────────────────────────────────────────────
+if [ -f "${KOHYA_DIR}/.kohya_installed" ]; then
+    log "Found existing kohya_ss installation at ${KOHYA_DIR}"
+else
+    log "Installing kohya_ss — this will take a few minutes on first boot..."
+    git clone --depth 1 https://github.com/bmaltais/kohya_ss "${KOHYA_DIR}"
+    echo "$(date -u +"%Y%m%dT%H%M%SZ")" > "${KOHYA_DIR}/.kohya_installed"
+    log "kohya_ss cloned"
+fi
+
+log "Verifying kohya_ss Python dependencies..."
+pip install -r "${KOHYA_DIR}/requirements.txt" --quiet || log "WARNING: some kohya_ss deps failed"
+log "kohya_ss dependencies ready"
+
+# ── 5. Pull Ollama models (skip if already present) ───────────────────────────
 for MODEL in ${OLLAMA_MODEL_LIST}; do
     if ollama list 2>/dev/null | grep -q "^${MODEL}"; then
         log "Ollama model already present: ${MODEL}"
@@ -121,5 +136,5 @@ log "Runtime .env written"
 
 # ── 7. Hand off to supervisor (manages harness + ComfyUI in a restart loop) ──
 log "Handing off to supervisor..."
-export VOLUME_PATH INSTALL_DIR COMFYUI_DIR HARNESS_PORT BRANCH
+export VOLUME_PATH INSTALL_DIR COMFYUI_DIR KOHYA_DIR HARNESS_PORT BRANCH
 exec /opt/harness/supervisor.sh

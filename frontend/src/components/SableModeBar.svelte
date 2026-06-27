@@ -12,33 +12,34 @@
     nsfw: 'dolphin-llama3:70b',
   };
 
-  let error    = '';
-  let inStudio = false;
-  let comfyTab = null;
-  let tabPoll  = null;
+  const TOOL_PORTS = { comfy: 8188, kohya: 8552 };
 
-  $: isNsfw = $sableMode === 'nsfw';
+  let error      = '';
+  let activeTool = null; // 'comfy' | 'kohya' | null
+  let toolTab    = null;
+  let tabPoll    = null;
 
-  // Derive the ComfyUI URL from the harness URL (swap port)
-  function comfyUrl(harnessUrl) {
+  $: isNsfw    = $sableMode === 'nsfw';
+  $: inStudio  = activeTool !== null;
+
+  function toolUrl(harnessUrl, port) {
     try {
       const u = new URL(harnessUrl);
-      // RunPod proxy: abc123-8080.proxy.runpod.net → abc123-8188.proxy.runpod.net
       if (u.hostname.includes('.proxy.runpod.net')) {
-        return harnessUrl.replace(/-(\d+)\.proxy\.runpod\.net/, '-8188.proxy.runpod.net');
+        return harnessUrl.replace(/-(\d+)\.proxy\.runpod\.net/, `-${port}.proxy.runpod.net`);
       }
-      u.port = '8188';
+      u.port = String(port);
       return u.href;
-    } catch { return 'http://localhost:8188'; }
+    } catch { return `http://localhost:${port}`; }
   }
 
-  // Reactive: clear loading once the right model is confirmed loaded
+  // Reactive: clear loading once correct model confirmed loaded
   $: if ($sableLoading && !inStudio && $statusData?.model_loaded === CHAT_MODELS[$sableMode]) {
     sableLoading.set(false);
   }
 
-  async function openComfyUI() {
-    if ($sableLoading || inStudio) return;
+  async function openTool(tool) {
+    if ($sableLoading || activeTool === tool) return;
     sableLoading.set(true);
     error = '';
     try {
@@ -48,22 +49,21 @@
       sableLoading.set(false);
       return;
     }
-    inStudio = true;
+    activeTool = tool;
     sableLoading.set(false);
 
-    comfyTab = window.open(comfyUrl(get(moduleUrl)), '_blank');
-
-    // Poll every 2s — when the tab is closed, return to chat
+    clearInterval(tabPoll);
+    toolTab = window.open(toolUrl(get(moduleUrl), TOOL_PORTS[tool]), '_blank');
     tabPoll = setInterval(() => {
-      if (!comfyTab || comfyTab.closed) returnToChat();
+      if (!toolTab || toolTab.closed) returnToChat();
     }, 2000);
   }
 
   async function returnToChat() {
     clearInterval(tabPoll);
     tabPoll    = null;
-    comfyTab   = null;
-    inStudio   = false;
+    toolTab    = null;
+    activeTool = null;
     error      = '';
     sableLoading.set(true);
     try {
@@ -130,15 +130,17 @@
       >NSFW</button>
     </div>
 
-    <!-- ComfyUI button -->
-    {#if inStudio}
-      <button class="comfy-btn active" on:click={returnToChat} disabled={$sableLoading}>
-        ● ComfyUI Open
-      </button>
+    <!-- Tool buttons -->
+    {#if activeTool === 'comfy'}
+      <button class="tool-btn active" on:click={returnToChat} disabled={$sableLoading}>● ComfyUI</button>
     {:else}
-      <button class="comfy-btn" on:click={openComfyUI} disabled={$sableLoading}>
-        ComfyUI →
-      </button>
+      <button class="tool-btn" on:click={() => openTool('comfy')} disabled={$sableLoading || inStudio}>ComfyUI →</button>
+    {/if}
+
+    {#if activeTool === 'kohya'}
+      <button class="tool-btn active" on:click={returnToChat} disabled={$sableLoading}>● Kohya</button>
+    {:else}
+      <button class="tool-btn" on:click={() => openTool('kohya')} disabled={$sableLoading || inStudio}>Kohya →</button>
     {/if}
   </div>
 </div>
@@ -217,7 +219,7 @@
   }
   .mode-pill:disabled { cursor: default; }
 
-  .comfy-btn {
+  .tool-btn {
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.05em;
@@ -229,13 +231,13 @@
     cursor: pointer;
     transition: background 0.12s, color 0.12s;
   }
-  .comfy-btn:hover:not(:disabled) { background: var(--accent); color: var(--bg); }
-  .comfy-btn.active {
+  .tool-btn:hover:not(:disabled) { background: var(--accent); color: var(--bg); }
+  .tool-btn.active {
     background: var(--accent-dim);
     color: var(--accent);
     animation: pulse 2s ease-in-out infinite;
   }
-  .comfy-btn:disabled { opacity: 0.4; cursor: default; }
+  .tool-btn:disabled { opacity: 0.4; cursor: default; }
 
   @keyframes pulse {
     0%, 100% { opacity: 1; }

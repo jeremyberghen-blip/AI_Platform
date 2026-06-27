@@ -6,6 +6,7 @@ set -uo pipefail
 VOLUME_PATH="${VOLUME_PATH:-/workspace}"
 INSTALL_DIR="${INSTALL_DIR:-${VOLUME_PATH}/ai_harness}"
 COMFYUI_DIR="${VOLUME_PATH}/comfyui"
+KOHYA_DIR="${KOHYA_DIR:-${VOLUME_PATH}/kohya_ss}"
 HARNESS_PORT="${HARNESS_PORT:-8080}"
 BRANCH="${BRANCH:-main}"
 
@@ -14,6 +15,7 @@ FLAG_RESTART="${VOLUME_PATH}/.do_restart"
 
 MODULE_PID=""
 COMFYUI_PID=""
+KOHYA_PID=""
 
 log() { echo "[supervisor] $*"; }
 
@@ -27,6 +29,18 @@ start_comfyui() {
     python3 main.py --listen 0.0.0.0 --port 8188 --enable-cors-header "*" &
     COMFYUI_PID=$!
     log "ComfyUI PID=${COMFYUI_PID}"
+}
+
+start_kohya() {
+    if [ ! -f "${KOHYA_DIR}/.kohya_installed" ]; then
+        log "kohya_ss not installed — skipping"
+        return
+    fi
+    log "Starting kohya_ss on port 8552..."
+    cd "${KOHYA_DIR}"
+    python3 gui.py --server_name 0.0.0.0 --server_port 8552 --headless &
+    KOHYA_PID=$!
+    log "kohya_ss PID=${KOHYA_PID}"
 }
 
 start_harness() {
@@ -44,25 +58,30 @@ stop_all() {
     log "Stopping services..."
     [ -n "${MODULE_PID}" ]  && kill "${MODULE_PID}"  2>/dev/null || true
     [ -n "${COMFYUI_PID}" ] && kill "${COMFYUI_PID}" 2>/dev/null || true
+    [ -n "${KOHYA_PID}" ]   && kill "${KOHYA_PID}"   2>/dev/null || true
     sleep 2
     MODULE_PID=""
     COMFYUI_PID=""
+    KOHYA_PID=""
 }
 
 trap 'log "Supervisor received shutdown signal"; stop_all; exit 0' SIGTERM SIGINT
 
 while true; do
     start_comfyui
+    start_kohya
     start_harness
 
     log "Services running. Waiting for harness to exit..."
     wait "${MODULE_PID}" 2>/dev/null || true
     log "Harness module exited"
 
-    # Stop ComfyUI alongside the harness
+    # Stop ComfyUI and kohya alongside the harness
     [ -n "${COMFYUI_PID}" ] && kill "${COMFYUI_PID}" 2>/dev/null || true
+    [ -n "${KOHYA_PID}" ]   && kill "${KOHYA_PID}"   2>/dev/null || true
     sleep 1
     COMFYUI_PID=""
+    KOHYA_PID=""
 
     if [ -f "${FLAG_UPDATE}" ]; then
         log "Update flag detected — pulling latest code..."
