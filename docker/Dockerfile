@@ -1,6 +1,7 @@
 # AI Harness — RunPod template image
 # Thin image: runtime deps only. The actual app lives on the network volume.
-FROM ubuntu:22.04
+# RunPod PyTorch base — Python 3.11, CUDA 12.4, PyTorch 2.4 pre-installed
+FROM runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -8,14 +9,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 # ── System packages ──────────────────────────────────────────────────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3.11 python3.11-venv python3-pip \
     curl wget git ca-certificates \
     lsof procps zstd \
     && rm -rf /var/lib/apt/lists/*
-
-# python3 → python3.11
-RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 \
- && update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1
 
 # ── Ollama ───────────────────────────────────────────────────────────────────
 RUN curl -fsSL https://ollama.com/install.sh | sh
@@ -27,7 +23,8 @@ RUN chmod +x /opt/harness/*.sh
 # ── Ports ────────────────────────────────────────────────────────────────────
 # 8080  = harness module API
 # 8188  = ComfyUI
+# 8552  = kohya_ss
 # 11434 = Ollama
-EXPOSE 8080 8188 11434
+EXPOSE 8080 8188 8552 11434
 
 ENTRYPOINT ["/opt/harness/entrypoint.sh"]

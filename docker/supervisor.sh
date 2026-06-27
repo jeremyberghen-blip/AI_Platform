@@ -38,7 +38,7 @@ start_kohya() {
     fi
     log "Starting kohya_ss on port 8552..."
     cd "${KOHYA_DIR}"
-    python3 gui.py --server_name 0.0.0.0 --server_port 8552 --headless &
+    PYTHONPATH="${KOHYA_DIR}/sd-scripts" python3 kohya_gui.py --server_name 0.0.0.0 --server_port 8552 --headless &
     KOHYA_PID=$!
     log "kohya_ss PID=${KOHYA_PID}"
 }

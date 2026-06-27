@@ -1,14 +1,15 @@
 <script>
-  import { routingTarget, statusData, config } from '../lib/stores.js';
+  import { routingTarget, statusData, moduleUrl } from '../lib/stores.js';
+  import { activeProfile } from '../lib/config.js';
 
-  // Backend type → display label
   const BACKEND_LABELS = { ollama: 'Ollama', comfyui: 'ComfyUI', unknown: '—' };
 
   $: label = $routingTarget ? BACKEND_LABELS[$routingTarget.backend] ?? $routingTarget.backend : '—';
   $: host  = $routingTarget?.host ?? '—';
 
-  // Distinguish local vs. remote
-  $: isLocal = host.startsWith('localhost') || host.startsWith('127.') || host.startsWith('0.0.0.');
+  // LOCAL/REMOTE based on the module URL (where the harness is), not the backend inside it
+  $: moduleHost = (() => { try { return new URL($moduleUrl).hostname; } catch { return ''; } })();
+  $: isLocal = moduleHost === 'localhost' || moduleHost === '127.0.0.1' || moduleHost === '0.0.0.0';
   $: locationTag = !$routingTarget ? '' : isLocal ? 'local' : 'remote';
 </script>
 
