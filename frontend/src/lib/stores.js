@@ -51,33 +51,18 @@ export function clearHistory(characterId) {
 export const isStreaming = writable(false);
 
 // ── Sable mode ─────────────────────────────────────────────
-// Content: 'sfw' | 'nsfw' — which LLM to use in Chat mode
-// Work:    'chat' | 'studio' — Chat loads 70B, Studio unloads it for ComfyUI
-const SABLE_MODE_KEY      = 'sable_mode';
-const SABLE_WORK_MODE_KEY = 'sable_work_mode';
-
+// 'sfw' | 'nsfw' — which LLM to load. Studio state is ephemeral (tab-lifetime).
+const SABLE_MODE_KEY = 'sable_mode';
 function loadSableMode() {
   try {
     const v = localStorage.getItem(SABLE_MODE_KEY);
     return (v === 'sfw' || v === 'nsfw') ? v : 'sfw';
   } catch { return 'sfw'; }
 }
-function loadSableWorkMode() {
-  try {
-    const v = localStorage.getItem(SABLE_WORK_MODE_KEY);
-    return (v === 'chat' || v === 'studio') ? v : 'chat';
-  } catch { return 'chat'; }
-}
-
-export const sableMode     = writable(loadSableMode());
-export const sableWorkMode = writable(loadSableWorkMode());
-export const sableLoading  = writable(false);
-
+export const sableMode    = writable(loadSableMode());
+export const sableLoading = writable(false);
 sableMode.subscribe(m => {
   try { localStorage.setItem(SABLE_MODE_KEY, m); } catch {}
-});
-sableWorkMode.subscribe(m => {
-  try { localStorage.setItem(SABLE_WORK_MODE_KEY, m); } catch {}
 });
 
 // ── UI ─────────────────────────────────────────────────────
