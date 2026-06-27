@@ -140,7 +140,7 @@
       <select id="character" bind:value={cfg.activeCharacter}>
         <option value="pip">Pip (Companion)</option>
         <option value="code_agent">Code Agent (Engineering)</option>
-        <option value="media_agent">Media Agent (Visual Gen)</option>
+        <option value="sable">Sable (Media)</option>
         <option value="mental_health">Reflect (Wellbeing)</option>
       </select>
     </div>

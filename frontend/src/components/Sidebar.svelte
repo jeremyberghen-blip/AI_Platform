@@ -10,7 +10,7 @@
   const CHARACTERS = [
     { id: 'pip',           label: 'Pip',            sub: 'Companion' },
     { id: 'code_agent',    label: 'Code Agent',     sub: 'Engineering' },
-    { id: 'media_agent',   label: 'Media Agent',    sub: 'Visual Gen' },
+    { id: 'sable',         label: 'Sable',          sub: 'Media' },
     { id: 'mental_health', label: 'Reflect',        sub: 'Wellbeing' },
   ];
 

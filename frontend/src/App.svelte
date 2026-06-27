@@ -1,15 +1,18 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import Sidebar      from './components/Sidebar.svelte';
-  import ChatLog      from './components/ChatLog.svelte';
-  import ChatInput    from './components/ChatInput.svelte';
+  import Sidebar       from './components/Sidebar.svelte';
+  import ChatLog       from './components/ChatLog.svelte';
+  import ChatInput     from './components/ChatInput.svelte';
   import SettingsPanel from './components/SettingsPanel.svelte';
+  import SableModeBar  from './components/SableModeBar.svelte';
 
   import {
     config, moduleUrl, connectionState, connectionDetail,
     installProgress, statusData, availableModels,
     selectedModel, showSettings,
   } from './lib/stores.js';
+
+  $: isSable = $config.activeCharacter === 'sable';
   import { checkHealth, listModels } from './lib/api.js';
   import { isConfigured, activeProfile, API_KEY } from './lib/config.js';
 
@@ -83,6 +86,9 @@
   <Sidebar {onModelLoaded} />
 
   <main class="main">
+    {#if isSable}
+      <SableModeBar {onModelLoaded} />
+    {/if}
     <ChatLog />
     <ChatInput />
   </main>

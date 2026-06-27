@@ -59,6 +59,11 @@ export async function loadModel(url, apiKey, modelId) {
   return res.json();
 }
 
+export async function unloadModel(url, apiKey) {
+  const res = await apiFetch(url, apiKey, '/v1/models/unload', { method: 'POST' });
+  return res.json();
+}
+
 // ── Chat (SSE streaming) ─────────────────────────────────────────────────────
 // Yields: { type: 'token'|'done'|'error', content?, usage?, latency_ms?, ... }
 export async function* chatStream(url, apiKey, payload, signal) {

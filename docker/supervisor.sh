@@ -24,7 +24,7 @@ start_comfyui() {
     fi
     log "Starting ComfyUI on port 8188..."
     cd "${COMFYUI_DIR}"
-    "${COMFYUI_DIR}/venv/bin/python" main.py --listen 0.0.0.0 --port 8188 &
+    python3 main.py --listen 0.0.0.0 --port 8188 --enable-cors-header "*" &
     COMFYUI_PID=$!
     log "ComfyUI PID=${COMFYUI_PID}"
 }

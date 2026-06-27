@@ -95,7 +95,7 @@ _SYSTEM_PROMPTS: dict[str, list[str]] = {
         "Ollama/ComfyUI backends, RunPod deployment.",
     ],
 
-    "media_agent": [
+    "sable": [
         # LOD 0
         "You are a creative media artist specializing in AI image and video generation. "
         "When someone describes what they want vaguely, name the specific technique or "
@@ -175,7 +175,7 @@ _THOUGHT_PROMPTS: dict[str, str] = {
         "a security implication, an assumption that might be wrong — worth naming "
         "before you proceed? Do not write a response. Just think."
     ),
-    "media_agent": (
+    "sable": (
         "You are thinking privately before responding. In 2-3 sentences, briefly note: "
         "what creative vision is being described, what are the key elements to capture, "
         "and what's missing that might need clarifying? Do not write a response — just think."

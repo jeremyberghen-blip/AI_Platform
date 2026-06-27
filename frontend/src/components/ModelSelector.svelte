@@ -1,5 +1,5 @@
 <script>
-  import { availableModels, selectedModel, statusData, connectionState, moduleUrl } from '../lib/stores.js';
+  import { availableModels, selectedModel, statusData, connectionState, moduleUrl, config } from '../lib/stores.js';
   import { loadModel } from '../lib/api.js';
   import { API_KEY } from '../lib/config.js';
   import { get } from 'svelte/store';
@@ -9,8 +9,10 @@
   let loading = false;
   let error = '';
 
+  $: isSable = $config.activeCharacter === 'sable';
+
   $: loadedModel = $statusData?.model_loaded ?? null;
-  $: canLoad = $connectionState !== 'unreachable' && $connectionState !== 'auth_failed' && $selectedModel;
+  $: canLoad = $connectionState !== 'unreachable' && $connectionState !== 'auth_failed' && $selectedModel && !isSable;
 
   async function handleLoad() {
     if (!$selectedModel || loading) return;
@@ -31,7 +33,7 @@
   <div class="section-label">Model</div>
 
   <div class="select-row">
-    <select bind:value={$selectedModel} disabled={!$availableModels.length}>
+    <select bind:value={$selectedModel} disabled={!$availableModels.length || loading || isSable}>
       {#if !$availableModels.length}
         <option value="">No models available</option>
       {:else}
@@ -49,17 +51,19 @@
       class="load-btn"
       on:click={handleLoad}
       disabled={!canLoad || loading || $selectedModel === loadedModel}
-      title={$selectedModel === loadedModel ? 'Already loaded' : 'Load model'}
+      title={loading ? 'Loading…' : $selectedModel === loadedModel ? 'Already loaded' : 'Load model'}
     >
       {loading ? '…' : $selectedModel === loadedModel ? '✓' : 'Load'}
     </button>
   </div>
 
-  {#if error}
+  {#if isSable}
+    <div class="sable-note">Managed by Sable mode toggle</div>
+  {:else if loading}
+    <div class="loading-note">Loading {$selectedModel}… this may take a moment.</div>
+  {:else if error}
     <div class="error">{error}</div>
-  {/if}
-
-  {#if loadedModel && $selectedModel !== loadedModel}
+  {:else if loadedModel && $selectedModel !== loadedModel}
     <div class="loaded-note">Loaded: {loadedModel}</div>
   {/if}
 </div>
@@ -117,5 +121,18 @@
     color: var(--text-dim);
     margin-top: 4px;
     font-family: var(--font-mono);
+  }
+
+  .loading-note {
+    font-size: 11px;
+    color: var(--status-info);
+    margin-top: 4px;
+  }
+
+  .sable-note {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 4px;
+    font-style: italic;
   }
 </style>
