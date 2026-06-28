@@ -56,11 +56,19 @@ export async function loadModel(url, apiKey, modelId) {
     method: 'POST',
     body: JSON.stringify({ model_id: modelId }),
   });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? `Failed to load model: HTTP ${res.status}`);
+  }
   return res.json();
 }
 
 export async function unloadModel(url, apiKey) {
   const res = await apiFetch(url, apiKey, '/v1/models/unload', { method: 'POST' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? `Failed to unload model: HTTP ${res.status}`);
+  }
   return res.json();
 }
 

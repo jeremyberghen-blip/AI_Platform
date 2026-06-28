@@ -1,5 +1,5 @@
 <script>
-  import { availableModels, selectedModel, statusData, connectionState, moduleUrl, config } from '../lib/stores.js';
+  import { availableModels, selectedModel, statusData, connectionState, moduleUrl, config, sableFallback, sableLoading } from '../lib/stores.js';
   import { loadModel } from '../lib/api.js';
   import { API_KEY } from '../lib/config.js';
   import { get } from 'svelte/store';
@@ -9,10 +9,11 @@
   let loading = false;
   let error = '';
 
-  $: isSable = $config.activeCharacter === 'sable';
+  $: isSable   = $config.activeCharacter === 'sable';
+  $: managed   = isSable && !$sableFallback && !$sableLoading; // locked only when sable has confirmed model
 
   $: loadedModel = $statusData?.model_loaded ?? null;
-  $: canLoad = $connectionState !== 'unreachable' && $connectionState !== 'auth_failed' && $selectedModel && !isSable;
+  $: canLoad = $connectionState !== 'unreachable' && $connectionState !== 'auth_failed' && $selectedModel && !managed;
 
   async function handleLoad() {
     if (!$selectedModel || loading) return;
@@ -33,7 +34,7 @@
   <div class="section-label">Model</div>
 
   <div class="select-row">
-    <select bind:value={$selectedModel} disabled={!$availableModels.length || loading || isSable}>
+    <select bind:value={$selectedModel} disabled={!$availableModels.length || loading || managed}>
       {#if !$availableModels.length}
         <option value="">No models available</option>
       {:else}
@@ -57,8 +58,10 @@
     </button>
   </div>
 
-  {#if isSable}
+  {#if managed}
     <div class="sable-note">Managed by Sable mode toggle</div>
+  {:else if isSable && $sableFallback}
+    <div class="sable-note">Prescribed model not found — select manually</div>
   {:else if loading}
     <div class="loading-note">Loading {$selectedModel}… this may take a moment.</div>
   {:else if error}

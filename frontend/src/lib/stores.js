@@ -1,23 +1,22 @@
 import { writable, derived } from 'svelte/store';
 import { loadConfig, activeProfile } from './config.js';
 
-// ── Config ─────────────────────────────────────────────────
+// ── Config ─────────────────────────────────────────────
 export const config = writable(loadConfig());
 
-// ── Connection ─────────────────────────────────────────────
+// ── Connection ─────────────────────────────────────────
 // States: unreachable | starting | installing | updating | auth_failed
 //         backend_down | no_model | ready | error
-export const connectionState = writable('unreachable');
-export const connectionDetail = writable('');   // human-readable extra info
-export const installProgress  = writable(0);    // 0–1 during installing/updating
-export const statusData       = writable(null); // last /v1/status response
+export const connectionState  = writable('unreachable');
+export const connectionDetail = writable('');
+export const installProgress  = writable(0);
+export const statusData       = writable(null);
 
-// ── Models ─────────────────────────────────────────────────
-export const availableModels  = writable([]);
-export const selectedModel    = writable('');
+// ── Models ─────────────────────────────────────────────
+export const availableModels = writable([]);
+export const selectedModel   = writable('');
 
-// ── Chat ───────────────────────────────────────────────────
-// Per-character message histories, persisted to localStorage
+// ── Chat ───────────────────────────────────────────────
 const HISTORIES_KEY = 'ai_harness_chat_histories';
 function loadHistories() {
   try { return JSON.parse(localStorage.getItem(HISTORIES_KEY) ?? '{}'); } catch { return {}; }
@@ -27,7 +26,6 @@ chatHistories.subscribe(h => {
   try { localStorage.setItem(HISTORIES_KEY, JSON.stringify(h)); } catch {}
 });
 
-// Active character's messages (read-only derived — write via pushMessage/updateMessage)
 export const messages = derived(
   [chatHistories, config],
   ([h, cfg]) => h[cfg.activeCharacter] ?? []
@@ -50,8 +48,7 @@ export function clearHistory(characterId) {
 
 export const isStreaming = writable(false);
 
-// ── Sable mode ─────────────────────────────────────────────
-// 'sfw' | 'nsfw' — which LLM to load. Studio state is ephemeral (tab-lifetime).
+// ── Sable mode ─────────────────────────────────────────
 const SABLE_MODE_KEY = 'sable_mode';
 function loadSableMode() {
   try {
@@ -59,24 +56,30 @@ function loadSableMode() {
     return (v === 'sfw' || v === 'nsfw') ? v : 'sfw';
   } catch { return 'sfw'; }
 }
-export const sableMode    = writable(loadSableMode());
-export const sableLoading = writable(false);
+export const sableMode           = writable(loadSableMode());
+export const sableLoading        = writable(false);
+export const sableProductionMode = writable(false); // resets each session intentionally
+export const sableFallback       = writable(false); // true when prescribed model not found
 sableMode.subscribe(m => {
   try { localStorage.setItem(SABLE_MODE_KEY, m); } catch {}
 });
 
-// ── UI ─────────────────────────────────────────────────────
+// ── UI ─────────────────────────────────────────────────
 export const showSettings = writable(false);
 
-// ── Active profile URL (derived from config) ───────────────
+// ── Active profile URL ─────────────────────────────────
 export const moduleUrl = derived(config, c => activeProfile(c)?.moduleUrl ?? '');
 
-// ── Derived ────────────────────────────────────────────────
+// ── Derived ────────────────────────────────────────────
 export const isReady = derived(connectionState, s => s === 'ready');
 
 export const canChat = derived(
-  [connectionState, isStreaming, sableLoading],
-  ([cs, streaming, sl]) => cs === 'ready' && !streaming && !sl,
+  [connectionState, isStreaming, sableLoading, sableProductionMode, config],
+  ([cs, streaming, sl, prod, cfg]) => {
+    if (cs !== 'ready' || streaming || sl) return false;
+    if (cfg.activeCharacter === 'sable' && prod) return false;
+    return true;
+  }
 );
 
 export const routingTarget = derived(statusData, sd => {

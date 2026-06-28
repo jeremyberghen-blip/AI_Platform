@@ -42,48 +42,12 @@ class OllamaAdapter(BackendAdapter):
 
     async def load_model(self, model_id: str) -> AsyncGenerator[LoadProgress, None]:
         """
-        Ollama loads models on first use, but we can pre-pull them.
-        Streams pull progress if the model isn't already present.
-        After pulling, warms up the model by sending an empty generate request.
+        Selects a model for use. Never downloads. Ollama loads it into VRAM
+        lazily on the first chat request. If the model doesn't exist, that
+        first request will surface a clear error.
         """
-        async with self._client.stream(
-            "POST",
-            "/api/pull",
-            json={"name": model_id, "stream": True},
-            timeout=600.0,
-        ) as response:
-            response.raise_for_status()
-            async for line in response.aiter_lines():
-                if not line.strip():
-                    continue
-                try:
-                    data = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-
-                status = data.get("status", "")
-                total = data.get("total", 0)
-                completed = data.get("completed", 0)
-                progress = (completed / total) if total > 0 else 0.0
-
-                if "error" in data:
-                    yield LoadProgress(status="error", progress=0.0, message=data["error"])
-                    return
-
-                yield LoadProgress(status="pulling", progress=progress, message=status)
-
-        # Warm up: send an empty prompt so the model loads into VRAM
-        yield LoadProgress(status="loading", progress=0.95, message="Loading into memory")
-        try:
-            await self._client.post(
-                "/api/generate",
-                json={"model": model_id, "prompt": "", "stream": False},
-                timeout=600.0,
-            )
-            self._loaded_model = model_id
-            yield LoadProgress(status="ready", progress=1.0, message=f"{model_id} ready")
-        except Exception as e:
-            yield LoadProgress(status="error", progress=0.0, message=str(e))
+        self._loaded_model = model_id
+        yield LoadProgress(status="ready", progress=1.0, message=f"{model_id} ready")
 
     async def unload_model(self) -> None:
         if not self._loaded_model:
