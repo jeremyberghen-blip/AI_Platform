@@ -55,6 +55,9 @@ jobs:
           context: .
           push: true
           tags: jeremy200/ai-harness:v3
+          # Pass built-in token so git clones inside Docker don't hit rate limits
+          build-args: |
+            GITHUB_TOKEN=${{ github.token }}
           # Layer cache via GitHub Actions cache — speeds up re-runs
           cache-from: type=gha
           cache-to: type=gha,mode=max

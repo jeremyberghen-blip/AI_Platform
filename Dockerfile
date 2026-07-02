@@ -2,6 +2,12 @@ FROM runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# Passed in by GitHub Actions to avoid unauthenticated git clone rate limits
+ARG GITHUB_TOKEN=""
+RUN if [ -n "$GITHUB_TOKEN" ]; then \
+      git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"; \
+    fi
+
 # ── Python 3.12 (wheels/Linux/Torch270 are cp312-only) ────────────────────────
 # RunPod base already includes deadsnakes PPA — just install directly.
 # python3.12-distutils does not exist (distutils removed in 3.12; setuptools replaces it).
