@@ -42,6 +42,15 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("Backend healthy")
 
+    # ComfyUI is always available as a secondary adapter for image generation,
+    # regardless of which backend handles chat.
+    comfyui_adapter = ComfyUIAdapter(settings.comfyui_base_url)
+    comfyui_ok = await comfyui_adapter.health_check()
+    if comfyui_ok:
+        logger.info("ComfyUI healthy at %s", settings.comfyui_base_url)
+    else:
+        logger.info("ComfyUI not reachable at %s (will retry on first generation request)", settings.comfyui_base_url)
+
     capture_mgr = TestCaptureManager(
         storage_path=settings.storage_path,
         flush_to_disk=True,
@@ -51,6 +60,7 @@ async def lifespan(app: FastAPI):
         logger.info("Test/inspection mode enabled at startup")
 
     app.state.backend = backend
+    app.state.comfyui = comfyui_adapter
     app.state.session_manager = SessionManager()
     app.state.storage = storage
     app.state.test_capture = capture_mgr
@@ -76,6 +86,8 @@ async def lifespan(app: FastAPI):
 
     if hasattr(backend, "close"):
         await backend.close()
+
+    await comfyui_adapter.close()
 
     logger.info("Shutdown complete")
 

@@ -1,0 +1,14 @@
+# Model download manifest — read by startup.sh on each pod launch.
+# Files already present on the network volume are skipped (safe to re-run).
+#
+# Format:  type | filename | url
+# Types:   checkpoint, lora, controlnet, vae, upscale
+#
+# URL: paste the CivitAI download URL exactly as-is (no token needed here).
+# The token is appended automatically from the CIVITAI_API_TOKEN env var.
+#
+# ── Checkpoints ──────────────────────────────────────────────────────────────
+checkpoint | ponyDiffusionV6XL_v6StartWithThisOne.safetensors | https://civitai.com/api/download/models/290640?fileId=228616
+
+# ── LoRAs ─────────────────────────────────────────────────────────────────────
+# lora | your_character_lora.safetensors | https://civitai.com/api/download/models/VERSION_ID

@@ -53,13 +53,13 @@ class ControlNetRef(BaseModel):
 
 
 class GenerationParams(BaseModel):
-    model: str
+    model: str = ""   # empty → auto-select first available checkpoint
     loras: list[LoraRef] = Field(default_factory=list)
     controlnet: ControlNetRef | None = None
-    seed: int = -1
-    cfg: float = 7.5
-    steps: int = 30
-    sampler: str = "euler"
+    seed: int = -1    # -1 → random
+    cfg: float = 7.0
+    steps: int = 25
+    sampler: str = "dpmpp_2m"
     width: int = 1024
     height: int = 1024
 

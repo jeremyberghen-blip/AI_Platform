@@ -113,6 +113,9 @@ class GenerationJobResponse(BaseModel):
     progress: float = 0.0
     estimated_seconds: int | None = None
     created_at: str
+    image_b64: str | None = None
+    seed: int | None = None
+    checkpoint: str | None = None
 
 
 class WorkflowInfo(BaseModel):

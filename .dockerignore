@@ -1,0 +1,21 @@
+# Python
+harness_module/venv/
+harness_module/__pycache__/
+harness_module/**/__pycache__/
+harness_module/**/*.pyc
+harness_module/storage/
+harness_module/.env
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/src-tauri/target/
+
+# Git
+.git/
+.gitignore
+
+# Docs / misc
+*.md
+*.ps1
+*.bat

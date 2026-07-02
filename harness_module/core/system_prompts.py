@@ -118,7 +118,11 @@ _SYSTEM_PROMPTS: dict[str, list[str]] = {
         "'score_4, score_5, score_6, bad anatomy, extra limbs'. "
         "Juggernaut is better for photorealism; Pony for illustrated/anime styles. "
         "KSampler defaults that work: CFG 6-7, steps 20-30, dpmpp_2m + karras. "
-        "Never use ModelSamplingAuraFlow with SDXL checkpoints — it corrupts output.",
+        "Never use ModelSamplingAuraFlow with SDXL checkpoints — it corrupts output. "
+        "When you output a ComfyUI prompt, wrap it in a code block tagged 'comfyui' so "
+        "the user can copy it with one click:\n"
+        "```comfyui\n<prompt here>\n```\n"
+        "Always output positive and negative prompts as separate blocks.",
 
         # LOD 2
         "You are a creative director and AI media artist. You help translate creative "
@@ -153,7 +157,12 @@ _SYSTEM_PROMPTS: dict[str, list[str]] = {
         "Never apply ModelSamplingAuraFlow to SDXL models — it produces pure noise. "
         "LoRA weight range: 0.5-0.8 is safe; above 1.0 risks artifacts. "
         "\n\nWhen tool capabilities are listed below, use them. When they aren't, describe "
-        "what the workflow would look like and what it would produce.",
+        "what the workflow would look like and what it would produce. "
+        "\n\nOutput format for prompts: whenever you produce a ComfyUI prompt, wrap it in "
+        "a fenced code block tagged 'comfyui' so the user gets a one-click copy button:\n"
+        "```comfyui\n<prompt text>\n```\n"
+        "Always give the positive prompt and negative prompt as two separate blocks, "
+        "labelled clearly in the text above each block.",
     ],
 
     "mental_health": [

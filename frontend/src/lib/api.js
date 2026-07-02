@@ -90,6 +90,38 @@ export async function* chatStream(url, apiKey, payload, signal) {
   yield* parseSSEStream(res.body);
 }
 
+// ── Image generation ─────────────────────────────────────────────────────────
+export async function generateImage(url, apiKey, payload) {
+  const res = await apiFetch(url, apiKey, '/v1/generate/image', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? `Generation failed: HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function listCheckpoints(url, apiKey) {
+  const res = await apiFetch(url, apiKey, '/v1/generate/checkpoints');
+  if (!res.ok) return { checkpoints: [] };
+  return res.json();
+}
+
+// ── Model manifest ───────────────────────────────────────────────────────────
+export async function addModelToManifest(url, apiKey, entry) {
+  const res = await apiFetch(url, apiKey, '/v1/admin/models', {
+    method: 'POST',
+    body: JSON.stringify(entry),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? `Failed to add model: HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
 // ── Sessions ─────────────────────────────────────────────────────────────────
 export async function resetContext(url, apiKey, characterId) {
   const res = await apiFetch(url, apiKey, `/v1/context/reset?character_id=${encodeURIComponent(characterId)}`, { method: 'POST' });

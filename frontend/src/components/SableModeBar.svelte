@@ -4,6 +4,9 @@
   import { sableMode, sableLoading, sableProductionMode, sableFallback, statusData, moduleUrl } from '../lib/stores.js';
   import { loadModel, unloadModel } from '../lib/api.js';
   import { API_KEY } from '../lib/config.js';
+  import AddModelDialog from './AddModelDialog.svelte';
+
+  let showAddModel = false;
 
   export let onModelLoaded = () => {};
 
@@ -128,8 +131,14 @@
     <!-- Tool links — always open in new tab, no state change -->
     <a class="tool-link" href={toolUrl(TOOL_PORTS.comfy)} target="_blank" rel="noreferrer">ComfyUI →</a>
     <a class="tool-link" href={toolUrl(TOOL_PORTS.kohya)} target="_blank" rel="noreferrer">Kohya →</a>
+
+    <button class="tool-link" on:click={() => (showAddModel = true)}>+ Model</button>
   </div>
 </div>
+
+{#if showAddModel}
+  <AddModelDialog onClose={() => (showAddModel = false)} />
+{/if}
 
 <style>
   .mode-bar {
